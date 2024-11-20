@@ -1,0 +1,24 @@
+{
+  "name": "video-maker-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for the video maker application",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "axios": "^0.21.1",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "tailwindcss": "^2.2.19"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.3.7",
+    "postcss": "^8.3.11"
+  },
+  "author": "",
+  "license": "ISC"
+}

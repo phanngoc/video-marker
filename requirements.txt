@@ -1,0 +1,11 @@
+flask
+moviepy
+openai
+Pillow
+requests
+python-dotenv
+uuid
+rq
+google-auth-oauthlib
+google-api-python-client
+redis
