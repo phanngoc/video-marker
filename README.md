@@ -1,13 +1,15 @@
 # Video Maker
 
-Video Maker is a project that allows users to create and edit videos with ease.
+Video Maker is a project that allows users to create and edit videos, and upload youtube short.
+
+Sản phẩm thích hợp để mọi người không chuyên để tạo video short nhanh chóng giúp chia sẻ các kiến thức: về châm ngôn, về kiến thức.
 
 ## Features
 
-- Import videos from various sources
+- Import videos.
 - Edit videos with a user-friendly interface
 - Add effects, transitions, and text to videos
-- Export videos in different formats
+- Export to youtube short.
 
 ## Installation
 
