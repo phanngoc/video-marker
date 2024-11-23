@@ -1,0 +1,9 @@
+// filepath: /Users/ngocp/Documents/projects/video-maker/pages/_app.js
+import 'tailwindcss/tailwind.css';
+import '../styles/globals.css';
+
+function MyApp({ Component, pageProps }) {
+  return <Component {...pageProps} />;
+}
+
+export default MyApp;

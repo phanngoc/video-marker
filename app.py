@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip, AudioFileClip, ImageClip, concatenate_videoclips
 import openai
 import os
@@ -17,6 +18,7 @@ from peewee import Model, CharField, DateTimeField, MySQLDatabase
 import datetime
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for the Flask app
 
 load_dotenv()
 openai.api_key = os.getenv('OPENAI_API_KEY')
@@ -30,7 +32,7 @@ db = MySQLDatabase(
     user=os.getenv('MYSQL_USER'),
     password=os.getenv('MYSQL_PASSWORD'),
     host=os.getenv('MYSQL_HOST'),
-    port=3306
+    port=int(os.getenv('MYSQL_PORT')),
 )
 
 class Library(Model):
@@ -104,6 +106,22 @@ def add_text():
         video.write_videofile(output_path, codec='libx264')
 
         return jsonify({'message': 'Text added to video successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/upload_video', methods=['POST'])
+def upload_video():
+    if 'video' not in request.files:
+        return jsonify({'error': 'No video file provided'}), 400
+
+    video = request.files['video']
+    if video.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    try:
+        video_path = os.path.join('uploads', video.filename)
+        video.save(video_path)
+        return jsonify({'message': 'Video uploaded successfully', 'video_path': video_path}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -190,6 +208,24 @@ def concatenate_videos():
         final_clip.write_videofile(output_path, codec='libx264')
 
         return jsonify({'message': 'Videos concatenated successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/library', methods=['GET', 'OPTIONS'])
+def get_library():
+    # if request.method == 'OPTIONS':
+    #     response = app.make_default_options_response()
+    #     response.headers['Access-Control-Allow-Origin'] = '*'
+    #     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    #     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    #     return response
+
+    print('Getting library items')
+    try:
+        library_items = Library.select().dicts()
+        response = jsonify(list(library_items))
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response, 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
