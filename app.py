@@ -14,10 +14,10 @@ from worker import conn
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
-from peewee import Model, CharField, DateTimeField, MySQLDatabase
+from model import User, Library, db
 import datetime
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/uploads', static_folder='uploads')
 CORS(app)  # Enable CORS for the Flask app
 
 load_dotenv()
@@ -25,27 +25,6 @@ openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # Initialize job queue
 q = Queue(connection=conn)
-
-# Peewee MySQL database connection
-db = MySQLDatabase(
-    os.getenv('MYSQL_DATABASE'),
-    user=os.getenv('MYSQL_USER'),
-    password=os.getenv('MYSQL_PASSWORD'),
-    host=os.getenv('MYSQL_HOST'),
-    port=int(os.getenv('MYSQL_PORT')),
-)
-
-class Library(Model):
-    file_path = CharField()
-    file_type = CharField()
-    upload_time = DateTimeField(default=datetime.datetime.now)
-
-    class Meta:
-        database = db
-
-# Create library table if it doesn't exist
-db.connect()
-db.create_tables([Library])
 
 def upload_to_youtube(video_path, title, description):
     # YouTube API setup
@@ -121,6 +100,8 @@ def upload_video():
     try:
         video_path = os.path.join('uploads', video.filename)
         video.save(video_path)
+        Library.create(file_path=video_path, file_type='video', upload_time=datetime.datetime.now())
+
         return jsonify({'message': 'Video uploaded successfully', 'video_path': video_path}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -150,11 +131,10 @@ def create_video():
     image_description = data.get('image_description')
     audio_path = data.get('audio_path')
     output_path = data.get('output_path')
-    youtube_title = data.get('youtube_title')
-    youtube_description = data.get('youtube_description')
     text_position = data.get('text_position')
+    user_id = data.get('user_id', None)
 
-    if not video_path or not text or not image_description or not audio_path or not output_path or not youtube_title or not youtube_description or not text_position:
+    if not video_path or not text or not image_description or not audio_path or not output_path or not user_id:
         return jsonify({'error': 'Missing required parameters'}), 400
 
     try:
@@ -180,13 +160,11 @@ def create_video():
 
         video = CompositeVideoClip([video, txt_clip, img_clip])
         video = video.set_audio(audio_clip)
-        video.write_videofile(output_path, codec='libx264')
-
-        # Add job to queue for uploading to YouTube
-        job = q.enqueue(upload_to_youtube, output_path, youtube_title, youtube_description)
+        edited_video_path = os.path.join('uploads', f"{os.path.splitext(os.path.basename(video_path))[0]}_edited.mp4")
+        video.write_videofile(edited_video_path, codec='libx264')
 
         # Insert video and image paths into the library table
-        Library.create(file_path=video_path, file_type='video')
+        Library.create(file_path=edited_video_path, file_type='video')
         Library.create(file_path=img_path, file_type='image')
 
         return jsonify({'message': 'Video created successfully', 'job_id': job.get_id()}), 200
@@ -213,19 +191,51 @@ def concatenate_videos():
 
 @app.route('/api/library', methods=['GET', 'OPTIONS'])
 def get_library():
-    # if request.method == 'OPTIONS':
-    #     response = app.make_default_options_response()
-    #     response.headers['Access-Control-Allow-Origin'] = '*'
-    #     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    #     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    #     return response
-
-    print('Getting library items')
     try:
         library_items = Library.select().dicts()
         response = jsonify(list(library_items))
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response, 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/upload_to_youtube', methods=['POST'])
+def upload_to_youtube_endpoint():
+    data = request.get_json()
+    video_path = data.get('video_path')
+    youtube_title = data.get('youtube_title')
+    youtube_description = data.get('youtube_description')
+
+    if not video_path or not youtube_title or not youtube_description:
+        return jsonify({'error': 'Missing required parameters'}), 400
+
+    try:
+        # Add job to queue for uploading to YouTube
+        job = q.enqueue(upload_to_youtube, video_path, youtube_title, youtube_description)
+        return jsonify({'message': 'Upload to YouTube started', 'job_id': job.get_id()}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/save_video', methods=['POST'])
+def save_video():
+    data = request.get_json()
+    video_path = data.get('video_path')
+    text = data.get('text')
+    text_position = data.get('text_position')
+    output_path = data.get('output_path')
+
+    if not video_path or not text or not text_position or not output_path:
+        return jsonify({'error': 'Missing required parameters'}), 400
+
+    try:
+        video = VideoFileClip(video_path)
+        txt_clip = TextClip(text, fontsize=70, color='white').set_pos((text_position['x'], text_position['y'])).set_duration(video.duration)
+        video = CompositeVideoClip([video, txt_clip])
+        video.write_videofile(output_path, codec='libx264')
+
+        Library.create(file_path=output_path, file_type='video', upload_time=datetime.datetime.now())
+
+        return jsonify({'message': 'Video saved successfully', 'video_path': output_path}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

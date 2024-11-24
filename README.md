@@ -24,6 +24,10 @@ To run the worker, navigate to the root directory and start the worker:
 python worker.py
 ```
 
+## Accessing Uploaded Files
+
+Uploaded files can be accessed at:
+
 ## Running the Frontend
 
 To run the frontend, navigate to the `frontend` directory and start the development server:
