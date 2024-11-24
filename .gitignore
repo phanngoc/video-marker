@@ -2,3 +2,4 @@
 sample/
 .env
 uploads/
+secret/
